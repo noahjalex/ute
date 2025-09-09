@@ -1,0 +1,80 @@
+{{template "base.html" .}}
+
+{{define "title"}}Video Library - UTE{{end}}
+
+{{define "content"}}
+<div class="mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 class="text-3xl font-bold text-gray-900">Video Library</h1>
+        <a href="/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Download New Video
+        </a>
+    </div>
+</div>
+
+<!-- Search and Filter Controls -->
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div class="flex flex-col sm:flex-row gap-4">
+        <div class="flex-1">
+            <input 
+                type="text" 
+                placeholder="Search videos..." 
+                value="{{.Query}}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                hx-get="/videos/search"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#video-grid"
+                hx-include="[name='sort']"
+                name="q"
+            >
+        </div>
+        <div>
+            <select 
+                name="sort" 
+                class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                hx-get="/videos/search"
+                hx-trigger="change"
+                hx-target="#video-grid"
+                hx-include="[name='q']"
+            >
+                <option value="date" {{if eq .Sort "date"}}selected{{end}}>Newest First</option>
+                <option value="title" {{if eq .Sort "title"}}selected{{end}}>Title A-Z</option>
+                <option value="size" {{if eq .Sort "size"}}selected{{end}}>Largest First</option>
+                <option value="duration" {{if eq .Sort "duration"}}selected{{end}}>Longest First</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Video Grid -->
+<div id="video-grid">
+    {{template "video_grid.html" .}}
+</div>
+
+<!-- Empty State -->
+{{if eq (len .Videos) 0}}
+<div class="text-center py-12">
+    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 110 2h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6H3a1 1 0 110-2h4zM6 6v12h12V6H6zm3 3a1 1 0 112 0v6a1 1 0 11-2 0V9zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V9z"/>
+    </svg>
+    <h3 class="mt-2 text-sm font-medium text-gray-900">No videos found</h3>
+    <p class="mt-1 text-sm text-gray-500">
+        {{if .Query}}
+            Try adjusting your search terms.
+        {{else}}
+            Get started by downloading your first video.
+        {{end}}
+    </p>
+    {{if not .Query}}
+    <div class="mt-6">
+        <a href="/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            Download Your First Video
+        </a>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{end}}

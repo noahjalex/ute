@@ -1,0 +1,51 @@
+{{template "base.html" .}}
+
+{{define "title"}}Download Video - UTE{{end}}
+
+{{define "content"}}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Download YouTube Video</h1>
+        
+        <form action="/download" method="POST" class="space-y-4">
+            <div>
+                <label for="url" class="block text-sm font-medium text-gray-700 mb-2">
+                    YouTube URL
+                </label>
+                <input 
+                    type="url" 
+                    id="url" 
+                    name="url" 
+                    required
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+            </div>
+            
+            <button 
+                type="submit" 
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+            >
+                Download Video
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <a href="/videos" class="text-blue-600 hover:text-blue-800 text-sm">
+                View Downloaded Videos →
+            </a>
+        </div>
+    </div>
+    
+    <div class="mt-8 bg-blue-50 rounded-lg p-4">
+        <h2 class="text-lg font-semibold text-blue-900 mb-2">Features</h2>
+        <ul class="text-sm text-blue-800 space-y-1">
+            <li>• Real-time download progress</li>
+            <li>• Automatic thumbnail extraction</li>
+            <li>• Video metadata and search</li>
+            <li>• Secure file management</li>
+            <li>• Download videos to your device</li>
+        </ul>
+    </div>
+</div>
+{{end}}
