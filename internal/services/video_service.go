@@ -36,6 +36,9 @@ func NewVideoService(downloadsDir string) *VideoService {
 	// Load existing metadata
 	vs.LoadMetadata()
 
+	// Scan for existing videos not in metadata
+	vs.ScanForExistingVideos()
+
 	return vs
 }
 
@@ -104,6 +107,81 @@ func (vs *VideoService) SaveMetadata() error {
 	}
 
 	return os.WriteFile(vs.MetadataFile, data, 0644)
+}
+
+// ScanForExistingVideos scans the downloads directory for video files not in metadata
+func (vs *VideoService) ScanForExistingVideos() error {
+	extensions := []string{".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".m4v"}
+
+	return filepath.WalkDir(vs.DownloadsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() || d.Name() == "metadata.json" {
+			return nil
+		}
+
+		filename := d.Name()
+
+		// Skip partial files
+		if strings.Contains(filename, ".part") || strings.Contains(filename, ".ytdl") {
+			return nil
+		}
+
+		ext := filepath.Ext(filename)
+		isVideo := false
+		for _, videoExt := range extensions {
+			if strings.EqualFold(ext, videoExt) {
+				isVideo = true
+				break
+			}
+		}
+
+		if !isVideo {
+			return nil
+		}
+
+		// Check if we already have this file in metadata
+		for _, video := range vs.videos {
+			fmt.Printf("vid: %#v\n", video)
+			if video.FilePath == path {
+				return nil // Already indexed
+			}
+		}
+
+		// Create a basic video record for existing files
+		info, err := d.Info()
+		if err != nil {
+			return nil // Skip files we can't stat
+		}
+
+		// Generate a simple ID based on filename
+		baseFilename := strings.TrimSuffix(filename, ext)
+		videoID := fmt.Sprintf("existing_%s_%d", baseFilename, info.ModTime().Unix())
+
+		// Look for thumbnail
+		thumbnailPath := vs.findThumbnailFile(baseFilename, videoID)
+
+		video := &models.Video{
+			ID:          videoID,
+			Title:       baseFilename,
+			Filename:    filename,
+			FilePath:    path,
+			FileSize:    info.Size(),
+			Duration:    0, // Unknown for existing files
+			Thumbnail:   thumbnailPath,
+			UploadDate:  "",
+			Uploader:    "",
+			Description: "Existing video file",
+			URL:         "",
+			CreatedAt:   info.ModTime(),
+		}
+
+		vs.videos[videoID] = video
+
+		return nil
+	})
 }
 
 // DownloadVideo downloads a video and returns progress updates via channel
@@ -207,6 +285,14 @@ func (vs *VideoService) findDownloadedFile(title, id string) (string, error) {
 	// Common video extensions
 	extensions := []string{".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".m4v"}
 
+	// Try with exact title first
+	for _, ext := range extensions {
+		path := filepath.Join(vs.DownloadsDir, title+ext)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
 	// Try with sanitized title
 	sanitizedTitle := models.SanitizeFilename(title)
 	for _, ext := range extensions {
@@ -224,19 +310,29 @@ func (vs *VideoService) findDownloadedFile(title, id string) (string, error) {
 		}
 	}
 
-	// Search directory for any video files created recently
-	err := filepath.WalkDir(vs.DownloadsDir, func(path string, d fs.DirEntry, err error) error {
+	// Search directory for any video files (not just recent ones)
+	var foundFile string
+	filepath.WalkDir(vs.DownloadsDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if !d.IsDir() {
 			ext := filepath.Ext(path)
+			filename := d.Name()
+
+			// Skip partial files
+			if strings.Contains(filename, ".part") || strings.Contains(filename, ".ytdl") {
+				return nil
+			}
+
 			for _, videoExt := range extensions {
 				if strings.EqualFold(ext, videoExt) {
-					info, err := d.Info()
-					if err == nil && time.Since(info.ModTime()) < 5*time.Minute {
-						return fmt.Errorf("found: %s", path)
+					// Check if filename contains the title or ID
+					if strings.Contains(strings.ToLower(filename), strings.ToLower(title)) ||
+						strings.Contains(strings.ToLower(filename), strings.ToLower(id)) {
+						foundFile = path
+						return fmt.Errorf("found") // Use error to break out of walk
 					}
 				}
 			}
@@ -244,8 +340,40 @@ func (vs *VideoService) findDownloadedFile(title, id string) (string, error) {
 		return nil
 	})
 
-	if err != nil && strings.HasPrefix(err.Error(), "found: ") {
-		return strings.TrimPrefix(err.Error(), "found: "), nil
+	if foundFile != "" {
+		return foundFile, nil
+	}
+
+	// If still not found, try to find any recent video file
+	filepath.WalkDir(vs.DownloadsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			ext := filepath.Ext(path)
+			filename := d.Name()
+
+			// Skip partial files
+			if strings.Contains(filename, ".part") || strings.Contains(filename, ".ytdl") {
+				return nil
+			}
+
+			for _, videoExt := range extensions {
+				if strings.EqualFold(ext, videoExt) {
+					info, err := d.Info()
+					if err == nil && time.Since(info.ModTime()) < 10*time.Minute {
+						foundFile = path
+						return fmt.Errorf("found")
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	if foundFile != "" {
+		return foundFile, nil
 	}
 
 	return "", fmt.Errorf("downloaded file not found")
@@ -255,6 +383,15 @@ func (vs *VideoService) findDownloadedFile(title, id string) (string, error) {
 func (vs *VideoService) findThumbnailFile(title, id string) string {
 	extensions := []string{".jpg", ".jpeg", ".png", ".webp"}
 
+	// Try with exact title first
+	for _, ext := range extensions {
+		path := filepath.Join(vs.DownloadsDir, title+ext)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Try with sanitized title
 	sanitizedTitle := models.SanitizeFilename(title)
 	for _, ext := range extensions {
 		path := filepath.Join(vs.DownloadsDir, sanitizedTitle+ext)
@@ -263,6 +400,7 @@ func (vs *VideoService) findThumbnailFile(title, id string) string {
 		}
 	}
 
+	// Try with ID
 	for _, ext := range extensions {
 		path := filepath.Join(vs.DownloadsDir, id+ext)
 		if _, err := os.Stat(path); err == nil {
@@ -270,7 +408,31 @@ func (vs *VideoService) findThumbnailFile(title, id string) string {
 		}
 	}
 
-	return ""
+	// Search for thumbnail files that contain the title
+	var foundFile string
+	filepath.WalkDir(vs.DownloadsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			ext := filepath.Ext(path)
+			filename := d.Name()
+
+			for _, thumbExt := range extensions {
+				if strings.EqualFold(ext, thumbExt) {
+					if strings.Contains(strings.ToLower(filename), strings.ToLower(title)) ||
+						strings.Contains(strings.ToLower(filename), strings.ToLower(id)) {
+						foundFile = path
+						return fmt.Errorf("found")
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	return foundFile
 }
 
 // GetAllVideos returns all videos

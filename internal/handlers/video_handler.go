@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -82,11 +84,17 @@ func (h *VideoHandler) HandleVideoList(w http.ResponseWriter, r *http.Request) {
 		data.Videos[i] = *video
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	if err := h.Templates.ExecuteTemplate(w, "video_list.html", data); err != nil {
+	// Execute template to buffer first to avoid header conflicts
+	var buf bytes.Buffer
+	if err := h.Templates.ExecuteTemplate(&buf, "video_list.html", data); err != nil {
 		http.Error(w, "Template error", http.StatusInternalServerError)
+		log.Fatal("err executing template: ", err)
 		return
 	}
+
+	// Only write to response if template execution succeeded
+	w.Header().Set("Content-Type", "text/html")
+	w.Write(buf.Bytes())
 }
 
 // HandleVideoSearch handles HTMX search requests
@@ -135,11 +143,16 @@ func (h *VideoHandler) HandleVideoSearch(w http.ResponseWriter, r *http.Request)
 		data.Videos[i] = *video
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	if err := h.Templates.ExecuteTemplate(w, "video_grid.html", data); err != nil {
+	// Execute template to buffer first to avoid header conflicts
+	var buf bytes.Buffer
+	if err := h.Templates.ExecuteTemplate(&buf, "video_grid.html", data); err != nil {
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
+
+	// Only write to response if template execution succeeded
+	w.Header().Set("Content-Type", "text/html")
+	w.Write(buf.Bytes())
 }
 
 // HandleVideoDownload serves video files for download
