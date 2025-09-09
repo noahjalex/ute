@@ -1,8 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"errors"
+	"bufio"
 	"flag"
 	"fmt"
 	"html/template"
@@ -23,21 +22,21 @@ func main() {
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "" || r.Method == "GET" {
-			data := struct {
-				Title string
-			}{
-				"Put linky here:",
-			}
-			tmpl, err := template.New("").Parse("<html><head></head><body><h1>{{ .Title }}</h1><form method=\"POST\"><input type=\"text\" name=\"link\" /><input type=\"submit\" value=\"Submit\"/></form></body></html>")
-			if err != nil {
-				log.Fatalf("error parsing template: %w\n", err)
-			}
+			data := struct{ Title string }{"Put linky here:"}
+			tmpl := `<html><body>
+			<h1>{{ .Title }}</h1>
+			<form method="POST">
+			  <input type="text" name="link" />
+			  <input type="submit" value="Submit"/>
+			</form>
+			</body></html>`
+			t := template.Must(template.New("").Parse(tmpl))
 			w.Header().Add("Content-Type", "text/html; charset=utf-8")
-			err = tmpl.Execute(w, data)
-			if err != nil {
-				log.Fatalf("error writing template: %w\n", err)
-			}
-		} else if r.Method == "POST" {
+			_ = t.Execute(w, data)
+			return
+		}
+
+		if r.Method == "POST" {
 			if err := r.ParseForm(); err != nil {
 				http.Error(w, "could not parse form", http.StatusBadRequest)
 				return
@@ -45,17 +44,45 @@ func main() {
 			link := r.FormValue("link")
 			fmt.Printf("Got link: %s\n", link)
 
-			out, err := download(link)
-			if err != nil {
-				log.Fatal(err)
+			// enable streaming
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				http.Error(w, "streaming not supported", http.StatusInternalServerError)
+				return
 			}
 
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(out))
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("method %s not supported", r.Method)))
+			// preCmd := exec.Command("yt-dlp", link, "--print", "%(title)s.%(ext)s", "--skip-download")
+			cmd := exec.Command("yt-dlp", link, "-P", "./shared/", "-o", "%(title)s.%(ext)s")
+
+			stdout, _ := cmd.StdoutPipe()
+			stderr, _ := cmd.StderrPipe()
+			cmd.Start()
+
+			scannerOut := bufio.NewScanner(stdout)
+			scannerErr := bufio.NewScanner(stderr)
+
+			for scannerOut.Scan() {
+				fmt.Fprintf(w, "%s\n", scannerOut.Text())
+				flusher.Flush()
+			}
+			for scannerErr.Scan() {
+				fmt.Fprintf(w, "%s\n", scannerErr.Text())
+				flusher.Flush()
+			}
+
+			if err := cmd.Wait(); err != nil {
+				fmt.Fprintf(w, "Error: %v\n", err)
+				return
+			}
+			// once done, redirect
+			w.Header().Set("Refresh", "2; url=/videos/") // auto redirect in 2 sec
+			fmt.Fprintf(w, "\nDone. Redirecting...\n<script>setTimeout(function(){window.location='/videos/%s'},2000);</script>", "")
+			flusher.Flush()
+			return
 		}
+
+		http.Error(w, "method not supported", http.StatusBadRequest)
 	})
 
 	mux.HandleFunc("/videos/", func(w http.ResponseWriter, r *http.Request) {
@@ -151,23 +178,4 @@ func main() {
 			log.Fatalf("server error: %w", err)
 		}
 	}
-}
-
-func download(url string) (string, error) {
-	cmd := exec.Command("yt-dlp", url, "-P", "./shared/")
-
-	// Capture standard output and error
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	// Run the command
-	err := cmd.Run()
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Command execution failed: %v\nStderr: %s", err, stderr.String()))
-	}
-
-	// Print the output
-	return fmt.Sprintf("Command Output:\n%s", out.String()), nil
 }
