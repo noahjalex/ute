@@ -1,10 +1,9 @@
 package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -13,76 +12,95 @@ import (
 	"strings"
 )
 
+func handleVideoDownload(link string) error {
+	cmd := exec.Command("yt-dlp", link, "--output", "videos/%(upload_date)s-%(uploader)s-%(title)s-[%(id)s].%(ext)s")
+	return cmd.Run()
+}
+
 func main() {
-	protocol := flag.String("protocol", "http", "protocol to use (default: 'http')")
 	addr := flag.String("addr", ":8080", "port to host on (default: ':8080')")
-	host := flag.String("host", "localhost", "host name (default: 'localhost')")
 
 	mux := http.NewServeMux()
 
+	fs := http.FileServer(http.Dir("./static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "" || r.Method == "GET" {
-			data := struct{ Title string }{"Put linky here:"}
-			tmpl := `<html><body>
-			<h1>{{ .Title }}</h1>
-			<form method="POST">
-			  <input type="text" name="link" />
-			  <input type="submit" value="Submit"/>
-			</form>
-			</body></html>`
-			t := template.Must(template.New("").Parse(tmpl))
-			w.Header().Add("Content-Type", "text/html; charset=utf-8")
-			_ = t.Execute(w, data)
+			http.ServeFile(w, r, "./static/index.html")
 			return
 		}
 
 		if r.Method == "POST" {
-			if err := r.ParseForm(); err != nil {
+			d := json.NewDecoder(r.Body)
+			linkBod := struct {
+				Link string `json:"link"`
+			}{}
+			err := d.Decode(&linkBod)
+			if err != nil || linkBod.Link == "" {
 				http.Error(w, "could not parse form", http.StatusBadRequest)
 				return
 			}
-			link := r.FormValue("link")
+			link := linkBod.Link
 			fmt.Printf("Got link: %s\n", link)
 
-			// enable streaming
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			flusher, ok := w.(http.Flusher)
-			if !ok {
-				http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			err = handleVideoDownload(link)
+			errS := struct {
+				Error error `json:"error"`
+			}{
+				Error: err,
+			}
+			err = json.NewEncoder(w).Encode(&errS)
+			if err != nil || linkBod.Link == "" {
+				http.Error(w, "could not write error from command", http.StatusInternalServerError)
 				return
 			}
-
-			// preCmd := exec.Command("yt-dlp", link, "--print", "%(title)s.%(ext)s", "--skip-download")
-			cmd := exec.Command("yt-dlp", link, "-P", "./shared/", "-o", "%(title)s.%(ext)s")
-
-			stdout, _ := cmd.StdoutPipe()
-			stderr, _ := cmd.StderrPipe()
-			cmd.Start()
-
-			scannerOut := bufio.NewScanner(stdout)
-			scannerErr := bufio.NewScanner(stderr)
-
-			for scannerOut.Scan() {
-				fmt.Fprintf(w, "%s\n", scannerOut.Text())
-				flusher.Flush()
-			}
-			for scannerErr.Scan() {
-				fmt.Fprintf(w, "%s\n", scannerErr.Text())
-				flusher.Flush()
-			}
-
-			if err := cmd.Wait(); err != nil {
-				fmt.Fprintf(w, "Error: %v\n", err)
-				return
-			}
-			// once done, redirect
-			w.Header().Set("Refresh", "2; url=/videos/") // auto redirect in 2 sec
-			fmt.Fprintf(w, "\nDone. Redirecting...\n<script>setTimeout(function(){window.location='/videos/%s'},2000);</script>", "")
-			flusher.Flush()
 			return
 		}
 
 		http.Error(w, "method not supported", http.StatusBadRequest)
+	})
+
+	// API endpoint to list videos
+	mux.HandleFunc("/api/videos", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.Error(w, "method not supported", http.StatusMethodNotAllowed)
+			return
+		}
+
+		baseDir := "./videos"
+
+		// Check if shared directory exists
+		if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+			// Return empty list if directory doesn't exist
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]string{})
+			return
+		}
+
+		entries, err := os.ReadDir(baseDir)
+		if err != nil {
+			http.Error(w, "could not read directory", http.StatusInternalServerError)
+			return
+		}
+
+		var videos []map[string]interface{}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				info, err := entry.Info()
+				if err != nil {
+					continue
+				}
+				videos = append(videos, map[string]interface{}{
+					"name":     entry.Name(),
+					"size":     info.Size(),
+					"modified": info.ModTime().Format("2006-01-02 15:04:05"),
+				})
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(videos)
 	})
 
 	mux.HandleFunc("/videos/", func(w http.ResponseWriter, r *http.Request) {
@@ -105,77 +123,12 @@ func main() {
 			http.ServeFile(w, r, targetDir)
 			return
 		}
+		return
 
-		// Otherwise list the directory contents
-		entries, err := os.ReadDir(targetDir)
-		if err != nil {
-			http.Error(w, "cannot read directory", http.StatusInternalServerError)
-			return
-		}
-
-		data := struct {
-			Title   string
-			Path    string
-			Entries []os.DirEntry
-		}{
-			Title:   "Folder Viewer",
-			Path:    relPath,
-			Entries: entries,
-		}
-
-		tmpl := `
-	<html>
-	  <head>
-	    <title>{{ .Title }}</title>
-	    <style>
-	      body { font-family: sans-serif; padding: 20px; }
-	      h1 { margin-bottom: 1em; }
-	      ul { list-style: none; padding: 0; }
-	      li { margin: 0.5em 0; }
-	      a { text-decoration: none; color: #007acc; }
-	      a:hover { text-decoration: underline; }
-	    </style>
-	  </head>
-	  <body>
-	    <h1>{{ if .Path }}Index of /{{ .Path }}{{ else }}Root Directory{{ end }}</h1>
-	    <ul>
-	      {{ if .Path }}
-		<li><a href="../">⬅️ Parent Directory</a></li>
-	      {{ end }}
-	      {{ range .Entries }}
-		<li>
-		  {{ if .IsDir }}
-		    📁 <a href="{{ .Name }}/">{{ .Name }}/</a>
-		  {{ else }}
-		    📄 <a href="{{ .Name }}">{{ .Name }}</a>
-		  {{ end }}
-		</li>
-	      {{ end }}
-	    </ul>
-	  </body>
-	</html>`
-
-		t, err := template.New("dir").Parse(tmpl)
-		if err != nil {
-			http.Error(w, "template error", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := t.Execute(w, data); err != nil {
-			http.Error(w, "render error", http.StatusInternalServerError)
-		}
 	})
 
-	fmt.Printf("Listening on %s://%s%s\n", *protocol, *host, *addr)
-	switch *protocol {
-	case "http":
-		if err := http.ListenAndServe(*addr, mux); err != nil {
-			log.Fatalf("server error: %w", err)
-		}
-	case "https":
-		if err := http.ListenAndServeTLS(*addr, "", "", mux); err != nil {
-			log.Fatalf("server error: %w", err)
-		}
+	fmt.Printf("Listening on http://localhost%s\n", *addr)
+	if err := http.ListenAndServe(*addr, mux); err != nil {
+		log.Fatalf("server error: %w", err)
 	}
 }

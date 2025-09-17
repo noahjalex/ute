@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Ute</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+
+<body>
+    <header>
+        <h1>Welcome to Ute!</h1>
+    </header>
+
+    <main>
+        <div class="new-video">
+            <form id="video-form">
+                <label for="link">Link</label>
+                <input type="text" name="link" id="link" placeholder="youtube.com/..." required />
+                <input type="submit" value="Download" />
+            </form>
+        </div>
+        <div class="videos" id="videos-container"></div>
+    </main>
+
+    <script src="static/script.js"></script>
+</body>
+
+</html>
