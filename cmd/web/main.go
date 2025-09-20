@@ -13,7 +13,7 @@ import (
 )
 
 func handleVideoDownload(link string) error {
-	cmd := exec.Command("yt-dlp", link, "--output", "videos/%(upload_date)s-%(uploader)s-%(title)s-[%(id)s].%(ext)s")
+	cmd := exec.Command("yt-dlp", link, "--output", "videos/%(upload_date)s-%(uploader)s-%(title)s.%(ext)s")
 	return cmd.Run()
 }
 

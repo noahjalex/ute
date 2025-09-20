@@ -1,59 +1,75 @@
 :root {
-	/* Primary Backgrounds */
+	/* === Background Colors === */
 	--bck-color: rgb(10, 12, 24);
-	/* Very dark blue */
+	/* Main background */
 	--sec-color: rgb(20, 24, 40);
-	/* Slightly lighter for cards/panels */
+	/* Card/panel background */
 
-	/* Primary Text and Highlights */
+	/* === Text Colors === */
 	--high-color: rgb(200, 210, 220);
-	/* Main text / highlights */
+	/* Primary text */
 	--muted-color: rgb(120, 130, 150);
 	/* Secondary text */
 
-	/* Accent Colors (Glowy / Neon style) */
+	/* === Accent Colors === */
 	--acc-color: rgb(88, 166, 255);
-	/* Bright neon blue */
+	/* Neon blue */
 	--acc-glow: rgb(64, 130, 255);
-	/* Slightly deeper blue for glow */
+	/* Slightly deeper blue */
 
 	--cyber-cyan: rgb(0, 255, 255);
-	/* Pure cyan glow */
+	/* Bright cyan */
 	--violet-glow: rgb(180, 100, 255);
 	/* Electric violet */
 	--teal-glow: rgb(0, 255, 200);
-	/* Minty teal glow */
+	/* Minty teal */
 
-	/* System Colors */
+	/* === Status Colors === */
 	--warn-color: rgb(255, 85, 100);
-	/* Error / Warning red-pink */
+	/* Warning/Error */
 	--success-color: rgb(50, 255, 150);
-	/* Confirmation green-cyan */
+	/* Success/confirmation */
 
-	/* Borders, Outlines, Separators */
+	/* === Borders and Effects === */
 	--border-color: rgb(50, 60, 80);
-	/* Subtle outlines */
-
-	/* Shadows / Effects */
+	/* UI outlines */
 	--shadow-color: rgba(0, 180, 255, 0.25);
 	/* Accent shadow */
 	--soft-glow: rgba(88, 166, 255, 0.3);
-	/* Blue glow for hover/effects */
+	/* Hover glow */
+}
+
+html,
+body {
+	height: 100%;
 }
 
 * {
-	/* background-color: var(--bck-color); */
 	color: var(--high-color);
-	font-family: Tahoma, sans-serif;
-
+	box-sizing: border-box;
 }
 
 body {
-	background: linear-gradient(180deg, rgb(10, 12, 24), rgb(10, 12, 25));
+	font-family: 'Rajdhani', sans-serif;
 	margin: 0;
 	padding: 0;
+	background:
+		repeating-linear-gradient(0deg,
+			rgba(255, 255, 255, 0.02) 0px,
+			rgba(255, 255, 255, 0.02) 1px,
+			transparent 1px,
+			transparent 20px),
+		repeating-linear-gradient(90deg,
+			rgba(255, 255, 255, 0.02) 0px,
+			rgba(255, 255, 255, 0.02) 1px,
+			transparent 1px,
+			transparent 20px),
+		radial-gradient(ellipse at top, rgba(88, 166, 255, 0.1), transparent 70%) no-repeat,
+		linear-gradient(180deg, #0a0c18 0%, #141828 100%) no-repeat;
+	background-size: cover;
 }
 
+/* === Header === */
 header {
 	width: 100%;
 	padding: 20px 0;
@@ -62,10 +78,10 @@ header {
 header>h1 {
 	color: white;
 	text-align: center;
-	width: 100%;
-	margin: 0
+	margin: 0;
 }
 
+/* === Main Layout === */
 main {
 	max-width: 1280px;
 	margin: 0 auto;
@@ -75,16 +91,16 @@ main {
 	align-items: center;
 }
 
+/* === New Video Form === */
 .new-video {
-	margin-bottom: 30px;
 	width: 80%;
+	margin-bottom: 30px;
 }
 
 .new-video form {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-	max-width: 100%;
 }
 
 .new-video label {
@@ -93,11 +109,11 @@ main {
 
 .new-video input[type="text"] {
 	padding: 10px;
-	border: 1px solid #444;
+	border: 1px solid var(--border-color);
 	border-radius: 4px;
 	background-color: #222;
 	color: #fefefe;
-	box-shadow: 0px 0px 3px rgba(144, 144, 255, 0.8);
+	box-shadow: 0 0 4px var(--soft-glow);
 }
 
 .new-video input[type="submit"] {
@@ -108,18 +124,21 @@ main {
 	color: var(--acc-color);
 	cursor: pointer;
 	font-weight: bold;
+	transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .new-video input[type="submit"]:hover {
 	background-color: var(--acc-color);
-	transition: 0.2s ease;
+	color: var(--sec-color);
 }
 
+/* === Flash Messages === */
 .message {
 	padding: 10px;
 	margin: 10px 0;
 	border-radius: 4px;
 	font-weight: bold;
+	color: #fff;
 }
 
 .message.success {
@@ -137,54 +156,58 @@ main {
 	border: 1px solid #4a7a8a;
 }
 
+/* === Video List === */
 .videos {
-	margin-top: 20px;
+	margin-top: 12px;
+	width: 80%;
 }
 
 .no-videos {
 	text-align: center;
 	padding: 40px 20px;
-	color: #888;
+	color: var(--muted-color);
 	font-style: italic;
 }
 
 .videos-list {
 	display: flex;
 	flex-direction: column;
-	gap: 15px;
+	gap: 10px;
 }
 
 .video-item {
-	border: 1px solid #444;
+	border: 1px solid var(--border-color);
 	border-radius: 8px;
 	padding: 15px;
-	background-color: #1a1a2e;
+	background-color: var(--sec-color);
 }
 
 .video-name {
 	font-weight: bold;
 	font-size: 16px;
 	margin-bottom: 5px;
-	word-break: break-all;
+	word-break: break-word;
 }
 
 .video-info {
 	font-size: 12px;
-	color: #aaa;
+	color: var(--muted-color);
 	margin-bottom: 10px;
 }
 
+/* === Download Link === */
 .download-link {
 	display: inline-block;
 	padding: 8px 16px;
-	background-color: #0066cc;
-	color: white;
+	background-color: var(--acc-color);
+	color: #fff;
 	text-decoration: none;
 	border-radius: 4px;
 	font-size: 14px;
 	font-weight: bold;
+	transition: background-color 0.2s ease;
 }
 
 .download-link:hover {
-	background-color: #0052a3;
+	background-color: var(--acc-glow);
 }
