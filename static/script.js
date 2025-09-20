@@ -80,6 +80,8 @@ async function loadVideos() {
 function displayVideos(videos) {
 	const container = document.getElementById('videos-container');
 
+	console.log(videos);
+
 	// Clear existing videos (but keep messages)
 	const existingVideos = container.querySelectorAll('.video-item');
 	existingVideos.forEach(item => item.remove());
@@ -101,14 +103,14 @@ function displayVideos(videos) {
 
 		const videoName = document.createElement('div');
 		videoName.className = 'video-name';
-		videoName.textContent = video.name;
+		videoName.textContent = video.title;
 
 		const videoInfo = document.createElement('div');
 		videoInfo.className = 'video-info';
-		videoInfo.textContent = `Size: ${formatFileSize(video.size)} | Modified: ${video.modified}`;
+		videoInfo.textContent = `Size: ${formatFileSize(video.size)} | Modified: ${video.modified} | Uploader: ${video.uploader} | URL: ${video.url}`;
 
 		const downloadLink = document.createElement('a');
-		downloadLink.href = `/videos/${encodeURIComponent(video.name)}`;
+		downloadLink.href = `/videos/${encodeURIComponent(video.filename)}`;
 		downloadLink.textContent = 'Download';
 		downloadLink.className = 'download-link';
 
