@@ -49,7 +49,7 @@ func loadVideoInfo(videoPath string) (*VideoInfo, error) {
 	return &info, nil
 }
 func main() {
-	addr := flag.String("addr", ":8080", "port to host on (default: ':8080')")
+	addr := flag.String("addr", ":8591", "port to host on (default: ':8591')")
 
 	mux := http.NewServeMux()
 
