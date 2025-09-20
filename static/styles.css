@@ -39,17 +39,15 @@
 	/* Hover glow */
 }
 
-html,
-body {
-	height: 100%;
-}
 
 * {
 	color: var(--high-color);
 	box-sizing: border-box;
 }
 
+html,
 body {
+	min-height: 100vh;
 	font-family: 'Rajdhani', sans-serif;
 	margin: 0;
 	padding: 0;
@@ -67,6 +65,26 @@ body {
 		radial-gradient(ellipse at top, rgba(88, 166, 255, 0.1), transparent 70%) no-repeat,
 		linear-gradient(180deg, #0a0c18 0%, #141828 100%) no-repeat;
 	background-size: cover;
+	overscroll-behavior: none;
+}
+
+/* Hide scrollbar */
+html,
+body {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+	display: none;
+}
+
+main,
+.videos,
+.videos-list {
+	height: auto;
+	overflow: visible;
 }
 
 /* === ICONS === */
@@ -91,6 +109,7 @@ header>h1 {
 
 /* === Main Layout === */
 main {
+	min-height: 100vh;
 	max-width: 1280px;
 	margin: 0 auto;
 	padding: 20px;
