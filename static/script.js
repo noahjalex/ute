@@ -14,6 +14,63 @@ const api = {
 	}
 };
 
+
+function renderVideoCard(video) {
+	const videoItem = document.createElement('div');
+	videoItem.className = 'video-item';
+
+	const videoName = document.createElement('div');
+	videoName.className = 'video-name';
+	videoName.textContent = video.title;
+
+	const videoInfo = document.createElement('div');
+	videoInfo.className = 'video-info';
+	videoInfo.innerHTML = `Size: ${formatFileSize(video.size)} | Modified: ${video.modified} | Views: ${formatViewCount(video.views)} | Uploader: ${video.uploader} | <a href="${video.url}" id="video-url"></a>`;
+	videoInfo.querySelector("#video-url").appendChild(newMaterialIcon('link'));
+
+	// Extra info section (visible depending on screen size)
+	const videoExtraInfo = document.createElement('div');
+	videoExtraInfo.className = 'video-extra-info';
+	videoExtraInfo.style.display = 'none';
+
+	const vidDescHead = document.createElement('span');
+	vidDescHead.innerHTML = 'Description:<br>';
+
+	const vidDesc = document.createElement('p');
+	vidDesc.innerHTML = `${formatDescription(video.description)}`;
+
+	videoExtraInfo.appendChild(vidDescHead);
+	videoExtraInfo.appendChild(vidDesc);
+
+	const showIcon = newMaterialIcon('visibility');
+	const hideIcon = newMaterialIcon('visibility_off');
+
+	const toggleButton = document.createElement('button');
+	toggleButton.className = 'toggle-description-button';
+	toggleButton.appendChild(showIcon);
+
+	toggleButton.addEventListener('click', () => {
+		const isVisible = videoExtraInfo.style.display === 'block';
+		videoExtraInfo.style.display = isVisible ? 'none' : 'block';
+
+		toggleButton.innerHTML = ''
+		toggleButton.appendChild(isVisible ? showIcon : hideIcon);
+	});
+
+	const downloadLink = document.createElement('a');
+	downloadLink.href = `/videos/${encodeURIComponent(video.filename)}`;
+	downloadLink.textContent = 'Download';
+	downloadLink.className = 'download-link';
+
+	videoItem.appendChild(videoName);
+	videoItem.appendChild(videoInfo);
+	videoItem.appendChild(toggleButton);
+	videoItem.appendChild(videoExtraInfo);
+	videoItem.appendChild(downloadLink);
+
+	return videoItem;
+}
+
 function displayMessage(message, type = 'info') {
 	const container = document.getElementById('videos-container');
 	const messageDiv = document.createElement('div');
@@ -98,26 +155,7 @@ function displayVideos(videos) {
 	videosList.className = 'videos-list';
 
 	videos.forEach(video => {
-		const videoItem = document.createElement('div');
-		videoItem.className = 'video-item';
-
-		const videoName = document.createElement('div');
-		videoName.className = 'video-name';
-		videoName.textContent = video.title;
-
-		const videoInfo = document.createElement('div');
-		videoInfo.className = 'video-info';
-		videoInfo.textContent = `Size: ${formatFileSize(video.size)} | Modified: ${video.modified} | Uploader: ${video.uploader} | URL: ${video.url}`;
-
-		const downloadLink = document.createElement('a');
-		downloadLink.href = `/videos/${encodeURIComponent(video.filename)}`;
-		downloadLink.textContent = 'Download';
-		downloadLink.className = 'download-link';
-
-		videoItem.appendChild(videoName);
-		videoItem.appendChild(videoInfo);
-		videoItem.appendChild(downloadLink);
-
+		videoItem = renderVideoCard(video)
 		videosList.appendChild(videoItem);
 	});
 
@@ -131,3 +169,29 @@ function formatFileSize(bytes) {
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
+function formatViewCount(number) {
+	if (number < 0) return '0';
+	const k = 1000;
+	const sizes = ['', 'K', 'M']
+	const i = Math.floor(Math.log(number) / Math.log(k));
+	return parseFloat((number) / Math.pow(k, i)).toFixed(2) + sizes[i];
+}
+
+function formatDescription(raw) {
+	const withLinks = raw.replace(
+		/(https?:\/\/[^\s<]+)/g,
+		'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+	);
+
+	const desc = withLinks.replace(/\n/g, "<br>")
+	return desc;
+}
+function newMaterialIcon(name) {
+	const icon = document.createElement('i');
+	icon.className = 'material-icons';
+	icon.textContent = name;
+	icon.style.color = 'inherit' // Can override after
+	return icon;
+}
+
+
