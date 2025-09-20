@@ -105,12 +105,13 @@ func main() {
 
 	mux.HandleFunc("/videos/", func(w http.ResponseWriter, r *http.Request) {
 		// Base directory to serve from
-		baseDir := "./shared"
+		baseDir := "./videos"
 
 		// Clean the path and join with baseDir
 		relPath := strings.TrimPrefix(r.URL.Path, "/videos/")
 		targetDir := filepath.Join(baseDir, relPath)
 
+		fmt.Println(targetDir)
 		fi, err := os.Stat(targetDir)
 		if err != nil {
 			http.NotFound(w, r)
